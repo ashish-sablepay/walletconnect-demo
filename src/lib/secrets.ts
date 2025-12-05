@@ -15,29 +15,14 @@
  */
 
 import type { AppSecrets } from "./types";
-import getConfig from 'next/config';
 
 // ===========================================
-// Helper to get env var from multiple sources
+// Helper to get env var
 // ===========================================
 
 function getEnvVar(key: string): string {
-  // Try process.env first (works in most cases)
-  if (process.env[key]) {
-    return process.env[key] as string;
-  }
-  
-  // Try Next.js server runtime config (for SSR)
-  try {
-    const { serverRuntimeConfig } = getConfig() || {};
-    if (serverRuntimeConfig?.[key]) {
-      return serverRuntimeConfig[key];
-    }
-  } catch {
-    // getConfig may not be available in all contexts
-  }
-  
-  return "";
+  // Access process.env directly - this works in Next.js API routes
+  return process.env[key] || "";
 }
 
 // ===========================================

@@ -1,22 +1,18 @@
 /**
  * ===========================================
- * DynamoDB Client Library
+ * In-Memory Storage for Demo
  * ===========================================
  * 
- * Provides helper functions for interacting with DynamoDB.
- * Handles orders and payment status records.
+ * Simple in-memory storage for orders and payment status.
+ * This is suitable for demo purposes where persistence is not critical.
  * 
- * Uses AWS Amplify Gen2 DynamoDB tables for production.
+ * For production, use Amplify Gen 2 Data API or configure proper
+ * IAM permissions for the SSR compute function.
+ * 
+ * Note: Data is lost when Lambda cold starts. For a real production
+ * app, implement proper DynamoDB access with IAM roles.
  */
 
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import {
-  DynamoDBDocumentClient,
-  PutCommand,
-  GetCommand,
-  UpdateCommand,
-  DeleteCommand,
-} from "@aws-sdk/lib-dynamodb";
 import type {
   Order,
   PaymentStatus,
@@ -25,64 +21,35 @@ import type {
 } from "./types";
 
 // ===========================================
-// DynamoDB Client Initialization
+// In-Memory Storage
 // ===========================================
 
 /**
- * Initialize DynamoDB client with region from environment
+ * In-memory store for orders
+ * Key: orderId, Value: Order
  */
-const dynamoClient = new DynamoDBClient({
-  region: process.env.AWS_REGION || "us-east-1",
-});
+const ordersStore = new Map<string, Order>();
 
 /**
- * Document client for easier JSON handling
+ * In-memory store for payment status
+ * Key: orderId, Value: PaymentStatusRecord
  */
-const docClient = DynamoDBDocumentClient.from(dynamoClient, {
-  marshallOptions: {
-    removeUndefinedValues: true,
-    convertEmptyValues: true,
-  },
-});
-
-// ===========================================
-// Table Names (from Amplify Gen2)
-// ===========================================
-
-const ORDERS_TABLE = process.env.DYNAMODB_ORDERS_TABLE || "Order-sablepay";
-const PAYMENT_STATUS_TABLE = process.env.DYNAMODB_PAYMENT_STATUS_TABLE || "PaymentStatus-sablepay";
+const paymentStatusStore = new Map<string, PaymentStatusRecord>();
 
 // ===========================================
 // Order Operations
 // ===========================================
 
 /**
- * Create a new order in DynamoDB
+ * Create a new order
  * 
  * @param order - The order object to store
  * @returns The created order
- * @throws Error if the operation fails
  */
 export async function createOrder(order: Order): Promise<Order> {
-  const command = new PutCommand({
-    TableName: ORDERS_TABLE,
-    Item: {
-      ...order,
-      // Add TTL for automatic expiration (24 hours after expiry)
-      ttl: Math.floor(new Date(order.expiresAt).getTime() / 1000) + 86400,
-    },
-    // Prevent overwriting existing orders
-    ConditionExpression: "attribute_not_exists(orderId)",
-  });
-
-  try {
-    await docClient.send(command);
-    console.log(`[DynamoDB] Created order: ${order.orderId}`);
-    return order;
-  } catch (error) {
-    console.error(`[DynamoDB] Failed to create order:`, error);
-    throw new Error(`Failed to create order: ${(error as Error).message}`);
-  }
+  console.log(`[Storage] Creating order: ${order.orderId}`);
+  ordersStore.set(order.orderId, order);
+  return order;
 }
 
 /**
@@ -92,18 +59,12 @@ export async function createOrder(order: Order): Promise<Order> {
  * @returns The order or null if not found
  */
 export async function getOrder(orderId: string): Promise<Order | null> {
-  const command = new GetCommand({
-    TableName: ORDERS_TABLE,
-    Key: { orderId },
-  });
-
-  try {
-    const response = await docClient.send(command);
-    return (response.Item as Order) || null;
-  } catch (error) {
-    console.error(`[DynamoDB] Failed to get order ${orderId}:`, error);
-    throw new Error(`Failed to get order: ${(error as Error).message}`);
+  const order = ordersStore.get(orderId);
+  if (!order) {
+    console.log(`[Storage] Order not found: ${orderId}`);
+    return null;
   }
+  return order;
 }
 
 /**
@@ -119,63 +80,31 @@ export async function updateOrderStatus(
   status: PaymentStatus,
   additionalFields?: Partial<Order>
 ): Promise<Order> {
-  const updateExpressionParts = ["#status = :status", "updatedAt = :updatedAt"];
-  const expressionAttributeNames: Record<string, string> = { "#status": "status" };
-  const expressionAttributeValues: Record<string, unknown> = {
-    ":status": status,
-    ":updatedAt": new Date().toISOString(),
+  const existing = ordersStore.get(orderId);
+  if (!existing) {
+    throw new Error(`Order not found: ${orderId}`);
+  }
+
+  const updated: Order = {
+    ...existing,
+    ...additionalFields,
+    status,
+    updatedAt: new Date().toISOString(),
   };
 
-  // Add any additional fields to the update
-  if (additionalFields) {
-    Object.entries(additionalFields).forEach(([key, value], index) => {
-      if (key !== "orderId" && key !== "status" && key !== "updatedAt") {
-        const attrName = `#field${index}`;
-        const attrValue = `:value${index}`;
-        updateExpressionParts.push(`${attrName} = ${attrValue}`);
-        expressionAttributeNames[attrName] = key;
-        expressionAttributeValues[attrValue] = value;
-      }
-    });
-  }
-
-  const command = new UpdateCommand({
-    TableName: ORDERS_TABLE,
-    Key: { orderId },
-    UpdateExpression: `SET ${updateExpressionParts.join(", ")}`,
-    ExpressionAttributeNames: expressionAttributeNames,
-    ExpressionAttributeValues: expressionAttributeValues,
-    ReturnValues: "ALL_NEW",
-  });
-
-  try {
-    const response = await docClient.send(command);
-    console.log(`[DynamoDB] Updated order ${orderId} status to: ${status}`);
-    return response.Attributes as Order;
-  } catch (error) {
-    console.error(`[DynamoDB] Failed to update order ${orderId}:`, error);
-    throw new Error(`Failed to update order: ${(error as Error).message}`);
-  }
+  ordersStore.set(orderId, updated);
+  console.log(`[Storage] Updated order ${orderId} status to: ${status}`);
+  return updated;
 }
 
 /**
- * Delete an order (for cleanup/testing)
+ * Delete an order
  * 
  * @param orderId - The order ID to delete
  */
 export async function deleteOrder(orderId: string): Promise<void> {
-  const command = new DeleteCommand({
-    TableName: ORDERS_TABLE,
-    Key: { orderId },
-  });
-
-  try {
-    await docClient.send(command);
-    console.log(`[DynamoDB] Deleted order: ${orderId}`);
-  } catch (error) {
-    console.error(`[DynamoDB] Failed to delete order ${orderId}:`, error);
-    throw new Error(`Failed to delete order: ${(error as Error).message}`);
-  }
+  ordersStore.delete(orderId);
+  console.log(`[Storage] Deleted order: ${orderId}`);
 }
 
 // ===========================================
@@ -191,23 +120,9 @@ export async function deleteOrder(orderId: string): Promise<void> {
 export async function upsertPaymentStatus(
   record: PaymentStatusRecord
 ): Promise<PaymentStatusRecord> {
-  const command = new PutCommand({
-    TableName: PAYMENT_STATUS_TABLE,
-    Item: {
-      ...record,
-      // Add TTL (7 days)
-      ttl: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
-    },
-  });
-
-  try {
-    await docClient.send(command);
-    console.log(`[DynamoDB] Upserted payment status for order: ${record.orderId}`);
-    return record;
-  } catch (error) {
-    console.error(`[DynamoDB] Failed to upsert payment status:`, error);
-    throw new Error(`Failed to upsert payment status: ${(error as Error).message}`);
-  }
+  paymentStatusStore.set(record.orderId, record);
+  console.log(`[Storage] Upserted payment status for order: ${record.orderId}`);
+  return record;
 }
 
 /**
@@ -219,18 +134,12 @@ export async function upsertPaymentStatus(
 export async function getPaymentStatus(
   orderId: string
 ): Promise<PaymentStatusRecord | null> {
-  const command = new GetCommand({
-    TableName: PAYMENT_STATUS_TABLE,
-    Key: { orderId },
-  });
-
-  try {
-    const response = await docClient.send(command);
-    return (response.Item as PaymentStatusRecord) || null;
-  } catch (error) {
-    console.error(`[DynamoDB] Failed to get payment status ${orderId}:`, error);
-    throw new Error(`Failed to get payment status: ${(error as Error).message}`);
+  const status = paymentStatusStore.get(orderId);
+  if (!status) {
+    console.log(`[Storage] Payment status not found: ${orderId}`);
+    return null;
   }
+  return status;
 }
 
 /**
@@ -244,8 +153,7 @@ export async function updatePaymentStatus(
   orderId: string,
   updates: Partial<PaymentStatusRecord>
 ): Promise<PaymentStatusRecord> {
-  // First, get the existing record to append to status history
-  const existing = await getPaymentStatus(orderId);
+  const existing = paymentStatusStore.get(orderId);
   
   // Build status history entry if status is being updated
   let statusHistory: StatusHistoryEntry[] = existing?.statusHistory || [];
@@ -260,68 +168,63 @@ export async function updatePaymentStatus(
     ];
   }
 
-  const updateExpressionParts: string[] = ["updatedAt = :updatedAt"];
-  const expressionAttributeNames: Record<string, string> = {};
-  const expressionAttributeValues: Record<string, unknown> = {
-    ":updatedAt": new Date().toISOString(),
+  const updated: PaymentStatusRecord = {
+    orderId,
+    status: existing?.status || "pending",
+    updatedAt: new Date().toISOString(),
+    ...existing,
+    ...updates,
+    statusHistory,
   };
 
-  // Add status history
-  updateExpressionParts.push("statusHistory = :statusHistory");
-  expressionAttributeValues[":statusHistory"] = statusHistory;
-
-  // Add other update fields
-  Object.entries(updates).forEach(([key, value], index) => {
-    if (key !== "orderId" && key !== "updatedAt" && key !== "statusHistory" && value !== undefined) {
-      if (key === "status") {
-        updateExpressionParts.push("#status = :status");
-        expressionAttributeNames["#status"] = "status";
-        expressionAttributeValues[":status"] = value;
-      } else {
-        const attrName = `#field${index}`;
-        const attrValue = `:value${index}`;
-        updateExpressionParts.push(`${attrName} = ${attrValue}`);
-        expressionAttributeNames[attrName] = key;
-        expressionAttributeValues[attrValue] = value;
-      }
-    }
-  });
-
-  const command = new UpdateCommand({
-    TableName: PAYMENT_STATUS_TABLE,
-    Key: { orderId },
-    UpdateExpression: `SET ${updateExpressionParts.join(", ")}`,
-    ExpressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
-    ExpressionAttributeValues: expressionAttributeValues,
-    ReturnValues: "ALL_NEW",
-  });
-
-  try {
-    const response = await docClient.send(command);
-    console.log(`[DynamoDB] Updated payment status for order: ${orderId}`);
-    return response.Attributes as PaymentStatusRecord;
-  } catch (error) {
-    console.error(`[DynamoDB] Failed to update payment status ${orderId}:`, error);
-    throw new Error(`Failed to update payment status: ${(error as Error).message}`);
-  }
+  paymentStatusStore.set(orderId, updated);
+  console.log(`[Storage] Updated payment status for order: ${orderId}`);
+  return updated;
 }
 
 /**
- * Delete payment status (for cleanup/testing)
+ * Delete payment status
  * 
  * @param orderId - The order ID
  */
 export async function deletePaymentStatus(orderId: string): Promise<void> {
-  const command = new DeleteCommand({
-    TableName: PAYMENT_STATUS_TABLE,
-    Key: { orderId },
-  });
+  paymentStatusStore.delete(orderId);
+  console.log(`[Storage] Deleted payment status: ${orderId}`);
+}
 
-  try {
-    await docClient.send(command);
-    console.log(`[DynamoDB] Deleted payment status: ${orderId}`);
-  } catch (error) {
-    console.error(`[DynamoDB] Failed to delete payment status ${orderId}:`, error);
-    throw new Error(`Failed to delete payment status: ${(error as Error).message}`);
-  }
+// ===========================================
+// Utility Functions
+// ===========================================
+
+/**
+ * Get all orders (for debugging)
+ */
+export function getAllOrders(): Order[] {
+  return Array.from(ordersStore.values());
+}
+
+/**
+ * Get all payment statuses (for debugging)
+ */
+export function getAllPaymentStatuses(): PaymentStatusRecord[] {
+  return Array.from(paymentStatusStore.values());
+}
+
+/**
+ * Clear all data (for testing)
+ */
+export function clearAllData(): void {
+  ordersStore.clear();
+  paymentStatusStore.clear();
+  console.log("[Storage] Cleared all data");
+}
+
+/**
+ * Get store statistics
+ */
+export function getStoreStats(): { orders: number; paymentStatuses: number } {
+  return {
+    orders: ordersStore.size,
+    paymentStatuses: paymentStatusStore.size,
+  };
 }
