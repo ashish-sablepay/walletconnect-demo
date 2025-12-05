@@ -84,6 +84,47 @@ export const MESH_NETWORK_IDS: Record<string, string> = {
 export const NETWORK_IDS = MESH_NETWORK_IDS;
 
 /**
+ * Fetch available networks from Mesh API
+ * 
+ * This is a debug/utility function to get the full list of supported networks
+ * with their official Mesh IDs. Run this to expand MESH_NETWORK_IDS.
+ * 
+ * @returns List of available networks with their Mesh IDs
+ */
+export async function fetchAvailableMeshNetworks(): Promise<{
+  networks: Array<{ id: string; name: string; chainId?: number }>;
+  error?: string;
+}> {
+  try {
+    const credentials = await getMeshCredentials();
+    
+    const response = await fetch(`${MESH_API_URL}/api/v1/transfers/managed/networks`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Client-Id": credentials.clientId,
+        "X-Client-Secret": credentials.clientSecret,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Mesh] Networks API error: ${response.status}`, errorText);
+      return { networks: [], error: `API error: ${response.status} - ${errorText}` };
+    }
+
+    const data = await response.json();
+    console.log(`[Mesh] Available networks:`, JSON.stringify(data, null, 2));
+    
+    // Return the networks data
+    return { networks: data.content || data.data || data || [] };
+  } catch (error) {
+    console.error(`[Mesh] Failed to fetch networks:`, error);
+    return { networks: [], error: String(error) };
+  }
+}
+
+/**
  * All supported stablecoins that Mesh can handle
  */
 export const SUPPORTED_STABLECOINS = [
