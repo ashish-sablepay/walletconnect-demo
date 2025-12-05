@@ -10,13 +10,20 @@ frontend:
     preBuild:
       commands:
         - npm ci --cache .npm --prefer-offline
-        # Log env vars availability (for debugging, without values)
-        - echo "MESH_CLIENT_ID configured = $([ -n \"$MESH_CLIENT_ID\" ] && echo 'yes' || echo 'no')"
-        - echo "WALLETCONNECT_PROJECT_ID configured = $([ -n \"$WALLETCONNECT_PROJECT_ID\" ] && echo 'yes' || echo 'no')"
-        - echo "MERCHANT_WALLET_ADDRESS configured = $([ -n \"$MERCHANT_WALLET_ADDRESS\" ] && echo 'yes' || echo 'no')"
     build:
       commands:
-        # Build with env vars - they get embedded into the Next.js bundle
+        # Write environment variables to .env.production for Next.js SSR
+        # This is required for Amplify Gen 2 to pass env vars to SSR runtime
+        - echo "MESH_CLIENT_ID=$MESH_CLIENT_ID" >> .env.production
+        - echo "MESH_CLIENT_SECRET=$MESH_CLIENT_SECRET" >> .env.production
+        - echo "WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID" >> .env.production
+        - echo "MERCHANT_WALLET_ADDRESS=$MERCHANT_WALLET_ADDRESS" >> .env.production
+        - echo "MESH_API_URL=$MESH_API_URL" >> .env.production
+        - echo "AWS_REGION=$AWS_REGION" >> .env.production
+        # Log env vars availability (for debugging, without values)
+        - echo "Environment variables written to .env.production"
+        - cat .env.production | sed 's/=.*/=***/'
+        # Build the Next.js app
         - npm run build
   artifacts:
     baseDirectory: .next
