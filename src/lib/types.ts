@@ -140,6 +140,15 @@ export interface PaymentStatusRecord {
   /** Amount received (in stablecoin) */
   amountReceived?: string;
   
+  /** Network ID where payment was received */
+  networkId?: string;
+  
+  /** Stablecoin symbol used for payment */
+  stablecoin?: string;
+  
+  /** Amount paid (numeric) */
+  amount?: number;
+  
   /** Error message if payment failed */
   errorMessage?: string;
   

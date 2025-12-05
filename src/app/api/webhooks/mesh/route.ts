@@ -16,7 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { updatePaymentStatus, getOrderByTransactionId } from "@/lib/dynamo";
+import { updatePaymentStatus } from "@/lib/dynamo";
 
 // ===========================================
 // Webhook Types
