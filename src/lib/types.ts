@@ -41,8 +41,24 @@ export type NetworkId =
 
 /**
  * Supported stablecoins for payment
+ * Includes all major stablecoins supported by Mesh
  */
-export type StablecoinSymbol = 'USDC' | 'USDT' | 'DAI' | 'BUSD';
+export type StablecoinSymbol = 
+  | 'USDC'   // USD Coin - most widely supported
+  | 'USDT'   // Tether - high liquidity
+  | 'DAI'    // MakerDAO DAI - decentralized
+  | 'BUSD'   // Binance USD
+  | 'FRAX'   // Frax - algorithmic
+  | 'TUSD'   // TrueUSD
+  | 'USDP'   // Pax Dollar
+  | 'GUSD'   // Gemini Dollar
+  | 'LUSD'   // Liquity USD
+  | 'sUSD'   // Synthetix USD
+  | 'EURS'   // STASIS Euro
+  | 'EURT'   // Tether Euro
+  | 'USDD'   // USDD
+  | 'PYUSD'  // PayPal USD
+  | 'any';   // Accept any stablecoin
 
 // ===========================================
 // Order Types
@@ -215,6 +231,12 @@ export interface GenerateQRResponse {
   
   /** Expiration time for the QR */
   expiresAt?: string;
+  
+  /** Whether auto-detect mode is enabled */
+  isAutoDetect?: boolean;
+  
+  /** List of supported payment options when in auto-detect mode */
+  supportedOptions?: { network: string; stablecoin: string; chainId: number }[];
   
   error?: string;
 }

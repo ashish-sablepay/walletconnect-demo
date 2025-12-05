@@ -51,7 +51,12 @@ const createOrderSchema = z.object({
       })
     )
     .optional(),
-  stablecoin: z.enum(["USDC", "USDT", "DAI", "BUSD", "any"]).optional().default("USDC"),
+  // Support all stablecoins that Mesh handles
+  stablecoin: z.enum([
+    "USDC", "USDT", "DAI", "BUSD", "FRAX", "TUSD", 
+    "USDP", "GUSD", "LUSD", "sUSD", "EURS", "EURT", 
+    "USDD", "PYUSD", "any"
+  ]).optional().default("USDC"),
   networkId: z.enum([
     "ethereum",
     "polygon", 

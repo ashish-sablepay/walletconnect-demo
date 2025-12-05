@@ -101,13 +101,18 @@ function QRCodeDisplay({
   paymentUrl,
   expiresAt,
   onCopy,
+  isAutoDetect,
+  supportedOptions,
 }: {
   qrCodeDataUrl: string;
   paymentUrl: string;
   expiresAt: string;
   onCopy: () => void;
+  isAutoDetect?: boolean;
+  supportedOptions?: { network: string; stablecoin: string; chainId: number }[] | null;
 }) {
   const [timeLeft, setTimeLeft] = useState("");
+  const [showAllOptions, setShowAllOptions] = useState(false);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -129,6 +134,14 @@ function QRCodeDisplay({
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
   }, [expiresAt]);
+
+  // Get unique networks and stablecoins for summary
+  const uniqueNetworks = supportedOptions 
+    ? [...new Set(supportedOptions.map(o => o.network))]
+    : [];
+  const uniqueStablecoins = supportedOptions 
+    ? [...new Set(supportedOptions.map(o => o.stablecoin))]
+    : [];
 
   return (
     <div className="flex flex-col items-center space-y-4">
@@ -158,9 +171,45 @@ function QRCodeDisplay({
         </Button>
       </div>
 
-      <p className="text-sm text-center text-gray-500 max-w-xs">
-        Scan with any WalletConnect-compatible wallet to pay with USDC
-      </p>
+      {isAutoDetect && supportedOptions && supportedOptions.length > 0 ? (
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <Zap className="w-4 h-4 text-orange-500" />
+            <span className="text-sm font-medium text-gray-700">Auto-Detect Enabled</span>
+          </div>
+          <p className="text-sm text-gray-500 max-w-xs">
+            Accepts <strong>{uniqueStablecoins.length}</strong> stablecoins across <strong>{uniqueNetworks.length}</strong> networks
+          </p>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowAllOptions(!showAllOptions)}
+            className="text-xs text-orange-600 hover:text-orange-700"
+          >
+            {showAllOptions ? "Hide options" : `View all ${supportedOptions.length} options`}
+          </Button>
+          {showAllOptions && (
+            <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-2 text-xs">
+              <div className="grid grid-cols-2 gap-1">
+                {supportedOptions.slice(0, 20).map((opt, i) => (
+                  <div key={i} className="flex items-center gap-1 text-gray-600">
+                    <span className="font-medium">{opt.stablecoin}</span>
+                    <span className="text-gray-400">on</span>
+                    <span>{opt.network}</span>
+                  </div>
+                ))}
+              </div>
+              {supportedOptions.length > 20 && (
+                <p className="text-gray-400 mt-1">+{supportedOptions.length - 20} more...</p>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-center text-gray-500 max-w-xs">
+          Scan with any WalletConnect-compatible wallet to pay
+        </p>
+      )}
     </div>
   );
 }
@@ -253,6 +302,7 @@ const NETWORKS = [
   { id: "ethereum", name: "Ethereum", icon: "⟠", chainId: 1, fees: "high" },
 ] as const;
 
+// Comprehensive stablecoin support per network (matching Mesh capabilities)
 const STABLECOINS: Record<string, { id: string; name: string; icon: string }[]> = {
   base: [
     { id: "USDC", name: "USDC", icon: "💵" },
@@ -260,34 +310,52 @@ const STABLECOINS: Record<string, { id: string; name: string; icon: string }[]> 
   ],
   polygon: [
     { id: "USDC", name: "USDC", icon: "💵" },
-    { id: "USDT", name: "USDT", icon: "💲" },
+    { id: "USDT", name: "Tether", icon: "💲" },
     { id: "DAI", name: "DAI", icon: "◈" },
+    { id: "FRAX", name: "FRAX", icon: "🔷" },
+    { id: "TUSD", name: "TrueUSD", icon: "🔵" },
+    { id: "EURS", name: "EURS", icon: "€" },
   ],
   arbitrum: [
     { id: "USDC", name: "USDC", icon: "💵" },
-    { id: "USDT", name: "USDT", icon: "💲" },
+    { id: "USDT", name: "Tether", icon: "💲" },
     { id: "DAI", name: "DAI", icon: "◈" },
+    { id: "FRAX", name: "FRAX", icon: "🔷" },
+    { id: "LUSD", name: "LUSD", icon: "🟢" },
   ],
   optimism: [
     { id: "USDC", name: "USDC", icon: "💵" },
-    { id: "USDT", name: "USDT", icon: "💲" },
+    { id: "USDT", name: "Tether", icon: "💲" },
     { id: "DAI", name: "DAI", icon: "◈" },
+    { id: "FRAX", name: "FRAX", icon: "🔷" },
+    { id: "LUSD", name: "LUSD", icon: "🟢" },
+    { id: "sUSD", name: "sUSD", icon: "🟣" },
   ],
   ethereum: [
     { id: "USDC", name: "USDC", icon: "💵" },
-    { id: "USDT", name: "USDT", icon: "💲" },
+    { id: "USDT", name: "Tether", icon: "💲" },
     { id: "DAI", name: "DAI", icon: "◈" },
+    { id: "FRAX", name: "FRAX", icon: "🔷" },
+    { id: "TUSD", name: "TrueUSD", icon: "🔵" },
+    { id: "USDP", name: "USDP", icon: "🅿️" },
+    { id: "GUSD", name: "GUSD", icon: "🟩" },
+    { id: "LUSD", name: "LUSD", icon: "🟢" },
+    { id: "sUSD", name: "sUSD", icon: "🟣" },
+    { id: "PYUSD", name: "PayPal USD", icon: "🅿️" },
+    { id: "EURS", name: "EURS", icon: "€" },
+    { id: "EURT", name: "EURT", icon: "€" },
   ],
   avalanche: [
     { id: "USDC", name: "USDC", icon: "💵" },
-    { id: "USDT", name: "USDT", icon: "💲" },
-    { id: "DAI", name: "DAI", icon: "◈" },
+    { id: "USDT", name: "Tether", icon: "💲" },
+    { id: "TUSD", name: "TrueUSD", icon: "🔵" },
   ],
   bsc: [
     { id: "USDC", name: "USDC", icon: "💵" },
-    { id: "USDT", name: "USDT", icon: "💲" },
-    { id: "DAI", name: "DAI", icon: "◈" },
+    { id: "USDT", name: "Tether", icon: "💲" },
     { id: "BUSD", name: "BUSD", icon: "🟡" },
+    { id: "TUSD", name: "TrueUSD", icon: "🔵" },
+    { id: "USDD", name: "USDD", icon: "🔶" },
   ],
 };
 
@@ -317,6 +385,8 @@ export function POSTerminal() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [supportedOptions, setSupportedOptions] = useState<{ network: string; stablecoin: string; chainId: number }[] | null>(null);
+  const [isAutoDetectQR, setIsAutoDetectQR] = useState(false);
 
   // Update stablecoin when network changes (ensure valid selection)
   useEffect(() => {
@@ -407,13 +477,17 @@ export function POSTerminal() {
       setQrCode(data.qrCodeDataUrl || null);
       setPaymentUrl(data.paymentUrl || null);
       setExpiresAt(data.expiresAt || null);
+      setSupportedOptions(data.supportedOptions || null);
+      setIsAutoDetectQR(data.isAutoDetect || false);
 
       // Start polling for status updates
       startPolling(orderId);
 
       toast({
         title: "QR Code Ready",
-        description: "Customer can now scan to pay",
+        description: data.isAutoDetect 
+          ? `Customer can pay with any of ${data.supportedOptions?.length || 'multiple'} options`
+          : "Customer can now scan to pay",
       });
     } catch (error) {
       console.error("Error generating QR:", error);
@@ -499,6 +573,8 @@ export function POSTerminal() {
     setExpiresAt(null);
     setStatus("pending");
     setTransactionHash(null);
+    setSupportedOptions(null);
+    setIsAutoDetectQR(false);
     setShowCancelDialog(false);
 
     toast({
@@ -524,6 +600,8 @@ export function POSTerminal() {
     setExpiresAt(null);
     setStatus("pending");
     setTransactionHash(null);
+    setSupportedOptions(null);
+    setIsAutoDetectQR(false);
   };
 
   /**
@@ -761,6 +839,8 @@ export function POSTerminal() {
                   paymentUrl={paymentUrl || ""}
                   expiresAt={expiresAt || new Date().toISOString()}
                   onCopy={copyPaymentUrl}
+                  isAutoDetect={isAutoDetectQR}
+                  supportedOptions={supportedOptions}
                 />
               )}
 

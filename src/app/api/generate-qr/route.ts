@@ -139,6 +139,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateQ
     });
 
     console.log("[API] QR code generated successfully for order:", orderId);
+    if (qrResult.isAutoDetect) {
+      console.log(`[API] Auto-detect mode: ${qrResult.supportedOptions?.length || 0} payment options available`);
+    }
 
     return NextResponse.json(
       {
@@ -148,6 +151,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateQ
         linkToken,
         meshLinkUrl,
         expiresAt: qrResult.expiresAt,
+        isAutoDetect: qrResult.isAutoDetect,
+        supportedOptions: qrResult.supportedOptions,
       },
       { status: 200 }
     );

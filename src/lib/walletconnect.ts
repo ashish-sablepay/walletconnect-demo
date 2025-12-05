@@ -124,40 +124,67 @@ export const SUPPORTED_NETWORKS = {
 export type NetworkKey = keyof typeof SUPPORTED_NETWORKS;
 
 /**
- * Supported stablecoins
+ * Supported stablecoins with their configurations
  */
 export const SUPPORTED_STABLECOINS = {
   USDC: { symbol: "USDC", name: "USD Coin", decimals: 6, icon: "💵" },
   USDT: { symbol: "USDT", name: "Tether USD", decimals: 6, icon: "💲" },
   DAI: { symbol: "DAI", name: "Dai", decimals: 18, icon: "◈" },
   BUSD: { symbol: "BUSD", name: "Binance USD", decimals: 18, icon: "🟡" },
+  FRAX: { symbol: "FRAX", name: "Frax", decimals: 18, icon: "🔷" },
+  TUSD: { symbol: "TUSD", name: "TrueUSD", decimals: 18, icon: "🔵" },
+  USDP: { symbol: "USDP", name: "Pax Dollar", decimals: 18, icon: "🅿️" },
+  GUSD: { symbol: "GUSD", name: "Gemini Dollar", decimals: 2, icon: "🟩" },
+  LUSD: { symbol: "LUSD", name: "Liquity USD", decimals: 18, icon: "🟢" },
+  sUSD: { symbol: "sUSD", name: "Synthetix USD", decimals: 18, icon: "🟣" },
+  PYUSD: { symbol: "PYUSD", name: "PayPal USD", decimals: 6, icon: "🅿️" },
+  EURS: { symbol: "EURS", name: "STASIS Euro", decimals: 2, icon: "€" },
+  EURT: { symbol: "EURT", name: "Tether Euro", decimals: 6, icon: "€" },
+  USDD: { symbol: "USDD", name: "USDD", decimals: 18, icon: "🔶" },
 } as const;
 
 export type StablecoinKey = keyof typeof SUPPORTED_STABLECOINS;
 
 /**
- * Token contract addresses by network and stablecoin
+ * Comprehensive token contract addresses by network and stablecoin
  */
-export const TOKEN_CONTRACTS: Record<NetworkKey, Partial<Record<StablecoinKey, string>>> = {
+export const TOKEN_CONTRACTS: Record<NetworkKey, Partial<Record<string, string>>> = {
   ethereum: {
     USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     USDT: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
     DAI: "0x6B175474E89094C44Da98b954EescdeCB5BC8F2",
+    FRAX: "0x853d955aCEf822Db058eb8505911ED77F175b99e",
+    TUSD: "0x0000000000085d4780B73119b644AE5ecd22b376",
+    USDP: "0x8E870D67F660D95d5be530380D0eC0bd388289E1",
+    GUSD: "0x056Fd409E1d7A124BD7017459dFEa2F387b6d5Cd",
+    LUSD: "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0",
+    sUSD: "0x57Ab1ec28D129707052df4dF418D58a2D46d5f51",
+    PYUSD: "0x6c3ea9036406852006290770BEdFcAbA0e23A0e8",
+    EURS: "0xdB25f211AB05b1c97D595516F45D7628d50CF763",
+    EURT: "0xC581b735A1688071A1746c968e0798D642EDE491",
   },
   polygon: {
     USDC: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", // Native USDC
     USDT: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
     DAI: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063",
+    FRAX: "0x45c32fA6DF82ead1e2EF74d17b76547EDdFaFF89",
+    TUSD: "0x2e1AD108fF1D8C782fcBbB89AAd783aC49586756",
+    EURS: "0xE111178A87A3BFf0c8d18DECBa5798827539Ae99",
   },
   arbitrum: {
     USDC: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // Native USDC
     USDT: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
     DAI: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+    FRAX: "0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F",
+    LUSD: "0x93b346b6BC2548dA6A1E7d98E9a421B42541425b",
   },
   optimism: {
     USDC: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", // Native USDC
     USDT: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
     DAI: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+    FRAX: "0x2E3D870790dC77A83DD1d18184Acc7439A53f475",
+    LUSD: "0xc40F949F8a4e094D1b49a23ea9241D289B7b2819",
+    sUSD: "0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9",
   },
   base: {
     USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Native USDC
@@ -167,12 +194,15 @@ export const TOKEN_CONTRACTS: Record<NetworkKey, Partial<Record<StablecoinKey, s
     USDC: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", // Native USDC
     USDT: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
     DAI: "0xd586E7F844cEa2F87f50152665BCbc2C279D8d70",
+    TUSD: "0x1C20E891Bab6b1727d14Da358FAe2984Ed9B59EB",
   },
   bsc: {
     USDC: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
     USDT: "0x55d398326f99059fF775485246999027B3197955",
     DAI: "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3",
     BUSD: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+    TUSD: "0x14016E85a25aeb13065688cAFB43044C2ef86784",
+    USDD: "0xd17479997F34dd9156Deef8F95A52D81D265be9c",
   },
 };
 
@@ -214,6 +244,9 @@ export const CHAIN_IDS: Record<string, number> = {
  * This creates a QR code that can be scanned by any WalletConnect-compatible
  * wallet to initiate a payment.
  * 
+ * For auto-detect mode, generates a universal payment request that accepts
+ * the most common stablecoins across multiple networks.
+ * 
  * @param order - The order details
  * @param merchantAddress - Merchant's wallet address
  * @returns Object containing QR code data URL and payment URL
@@ -225,54 +258,63 @@ export async function generatePaymentQR(
   qrCodeDataUrl: string;
   paymentUrl: string;
   expiresAt: string;
+  isAutoDetect: boolean;
+  supportedOptions?: { network: string; stablecoin: string; chainId: number }[];
 }> {
   const projectId = await getProjectId();
   
-  // Determine network and token
-  // For auto-detect mode, default to Base (best for stablecoin transfers - low fees, fast)
-  let networkId: NetworkKey = order.networkId as NetworkKey;
-  let stablecoin: StablecoinKey = (order.stablecoin || "USDC") as StablecoinKey;
-  
-  // Handle auto-detect mode (cast to string for comparison)
+  // Check if auto-detect mode
   const rawNetworkId = order.networkId as string;
   const rawStablecoin = order.stablecoin as string;
+  const isAutoDetect = rawNetworkId === "auto" || rawStablecoin === "any";
   
+  // Determine network and token
+  let networkId: NetworkKey = order.networkId as NetworkKey;
+  let stablecoin: string = order.stablecoin || "USDC";
+  
+  // For auto-detect mode, we'll generate a QR for the best default (Base + USDC)
+  // but the Mesh link will accept all options
   if (rawNetworkId === "auto" || !SUPPORTED_NETWORKS[networkId]) {
-    networkId = "base"; // Default to Base for auto-detect (low fees, fast confirmations)
-    console.log(`[WalletConnect] Auto-detect mode: defaulting to Base network`);
+    // Priority: Base (lowest fees) > Polygon > Arbitrum > Optimism
+    networkId = "base";
+    console.log(`[WalletConnect] Auto-detect network: using Base (lowest fees)`);
   }
   
-  // Handle "any" stablecoin - default to USDC
-  if (rawStablecoin === "any" || !SUPPORTED_STABLECOINS[stablecoin]) {
-    stablecoin = "USDC";
-    console.log(`[WalletConnect] Auto stablecoin: defaulting to USDC`);
+  if (rawStablecoin === "any") {
+    stablecoin = "USDC"; // Default to USDC as most widely held
+    console.log(`[WalletConnect] Auto-detect stablecoin: using USDC (most common)`);
   }
   
   // Get network config
-  const network = SUPPORTED_NETWORKS[networkId] || SUPPORTED_NETWORKS.polygon;
+  const network = SUPPORTED_NETWORKS[networkId] || SUPPORTED_NETWORKS.base;
   const chainId = network.chainId;
   
   // Get token contract address
-  const tokenContracts = TOKEN_CONTRACTS[networkId] || TOKEN_CONTRACTS.polygon;
-  const tokenContract = tokenContracts[stablecoin] || tokenContracts.USDC;
+  const tokenContracts = TOKEN_CONTRACTS[networkId] || TOKEN_CONTRACTS.base;
+  let tokenContract = tokenContracts[stablecoin];
+  
+  // Fallback to USDC if selected stablecoin not available on this network
+  if (!tokenContract) {
+    tokenContract = tokenContracts["USDC"];
+    stablecoin = "USDC";
+    console.log(`[WalletConnect] ${order.stablecoin} not available on ${network.name}, using USDC`);
+  }
   
   if (!tokenContract) {
-    throw new Error(`${stablecoin} is not supported on ${network.name}`);
+    throw new Error(`No stablecoins available on ${network.name}`);
   }
   
   // Get token decimals
-  const tokenConfig = SUPPORTED_STABLECOINS[stablecoin];
+  const tokenConfig = SUPPORTED_STABLECOINS[stablecoin as StablecoinKey];
   const decimals = tokenConfig?.decimals || 6;
 
   // Convert amount to token units based on decimals
   const tokenAmount = BigInt(Math.floor(order.amount * Math.pow(10, decimals))).toString();
 
   // Build ERC20 transfer data
-  // transfer(address to, uint256 amount)
   const transferData = buildERC20TransferData(merchantAddress, tokenAmount);
 
   // Create WalletConnect Pay URL (EIP-681 compatible)
-  // Format: ethereum:<contract>@<chainId>/transfer?address=<to>&uint256=<amount>
   const paymentUrl = buildPaymentUrl({
     chainId,
     contractAddress: tokenContract,
@@ -283,6 +325,12 @@ export async function generatePaymentQR(
   });
 
   console.log(`[WalletConnect] Generated payment URL for ${stablecoin} on ${network.name}: ${paymentUrl}`);
+  
+  // Build list of supported options for auto-detect mode
+  const supportedOptions = isAutoDetect ? buildSupportedOptions(merchantAddress, order.amount) : undefined;
+  if (supportedOptions) {
+    console.log(`[WalletConnect] Auto-detect mode: ${supportedOptions.length} payment options available`);
+  }
 
   // Generate QR code
   const qrCodeDataUrl = await QRCode.toDataURL(paymentUrl, {
@@ -302,7 +350,41 @@ export async function generatePaymentQR(
     qrCodeDataUrl,
     paymentUrl,
     expiresAt,
+    isAutoDetect,
+    supportedOptions,
   };
+}
+
+/**
+ * Build a list of all supported payment options for auto-detect mode
+ */
+function buildSupportedOptions(
+  merchantAddress: string,
+  amount: number
+): { network: string; stablecoin: string; chainId: number }[] {
+  const options: { network: string; stablecoin: string; chainId: number }[] = [];
+  
+  // Priority order for networks (by fees and speed)
+  const networkPriority: NetworkKey[] = ["base", "polygon", "arbitrum", "optimism", "avalanche", "bsc", "ethereum"];
+  
+  for (const networkId of networkPriority) {
+    const network = SUPPORTED_NETWORKS[networkId];
+    const contracts = TOKEN_CONTRACTS[networkId];
+    
+    if (!network || !contracts) continue;
+    
+    for (const [stablecoin, contract] of Object.entries(contracts)) {
+      if (contract) {
+        options.push({
+          network: network.name,
+          stablecoin,
+          chainId: network.chainId,
+        });
+      }
+    }
+  }
+  
+  return options;
 }
 
 // ===========================================
