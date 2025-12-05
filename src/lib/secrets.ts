@@ -15,6 +15,30 @@
  */
 
 import type { AppSecrets } from "./types";
+import getConfig from 'next/config';
+
+// ===========================================
+// Helper to get env var from multiple sources
+// ===========================================
+
+function getEnvVar(key: string): string {
+  // Try process.env first (works in most cases)
+  if (process.env[key]) {
+    return process.env[key] as string;
+  }
+  
+  // Try Next.js server runtime config (for SSR)
+  try {
+    const { serverRuntimeConfig } = getConfig() || {};
+    if (serverRuntimeConfig?.[key]) {
+      return serverRuntimeConfig[key];
+    }
+  } catch {
+    // getConfig may not be available in all contexts
+  }
+  
+  return "";
+}
 
 // ===========================================
 // Cache for secrets
@@ -42,12 +66,20 @@ export async function getSecrets(): Promise<AppSecrets> {
   }
 
   console.log("[Secrets] Loading secrets from environment variables");
+  
+  // Log available env vars for debugging (without values)
+  console.log("[Secrets] Available env vars:", {
+    MESH_CLIENT_ID: !!getEnvVar("MESH_CLIENT_ID"),
+    MESH_CLIENT_SECRET: !!getEnvVar("MESH_CLIENT_SECRET"),
+    WALLETCONNECT_PROJECT_ID: !!getEnvVar("WALLETCONNECT_PROJECT_ID"),
+    MERCHANT_WALLET_ADDRESS: !!getEnvVar("MERCHANT_WALLET_ADDRESS"),
+  });
 
   const secrets: AppSecrets = {
-    MESH_CLIENT_ID: process.env.MESH_CLIENT_ID || "",
-    MESH_CLIENT_SECRET: process.env.MESH_CLIENT_SECRET || "",
-    WALLETCONNECT_PROJECT_ID: process.env.WALLETCONNECT_PROJECT_ID || "",
-    MERCHANT_WALLET_ADDRESS: process.env.MERCHANT_WALLET_ADDRESS || "",
+    MESH_CLIENT_ID: getEnvVar("MESH_CLIENT_ID"),
+    MESH_CLIENT_SECRET: getEnvVar("MESH_CLIENT_SECRET"),
+    WALLETCONNECT_PROJECT_ID: getEnvVar("WALLETCONNECT_PROJECT_ID"),
+    MERCHANT_WALLET_ADDRESS: getEnvVar("MERCHANT_WALLET_ADDRESS"),
   };
 
   // Validate required fields in production
@@ -105,9 +137,10 @@ export async function getWalletConnectProjectId(): Promise<string> {
  * Get Merchant Wallet Address
  */
 export async function getMerchantWalletAddress(): Promise<string> {
-  // First check environment variable directly
-  if (process.env.MERCHANT_WALLET_ADDRESS) {
-    return process.env.MERCHANT_WALLET_ADDRESS;
+  // First check environment variable directly from multiple sources
+  const walletAddress = getEnvVar("MERCHANT_WALLET_ADDRESS");
+  if (walletAddress) {
+    return walletAddress;
   }
   
   const secrets = await getSecrets();
