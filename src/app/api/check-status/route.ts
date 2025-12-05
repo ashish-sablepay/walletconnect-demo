@@ -6,6 +6,11 @@
  * Checks the current status of a payment order.
  * Frontend polls this endpoint to update the UI.
  * 
+ * Detection methods:
+ * 1. Database status (from webhooks or previous checks)
+ * 2. Blockchain monitoring (checks for incoming transfers)
+ * 3. Mesh transfer status (if transfer was initiated via Mesh)
+ * 
  * Query Parameters:
  * - orderId: string (required) - The order ID to check
  * 
@@ -18,8 +23,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getOrder, getPaymentStatus, updateOrderStatus } from "@/lib/dynamo";
+import { getOrder, getPaymentStatus, updateOrderStatus, updatePaymentStatus } from "@/lib/dynamo";
 import { getTransferStatus } from "@/lib/mesh";
+import { checkForTransfers, checkAllNetworksForTransfers } from "@/lib/blockchain";
 import type { CheckStatusResponse, PaymentStatus } from "@/lib/types";
 
 // ===========================================
@@ -80,6 +86,56 @@ export async function GET(request: NextRequest): Promise<NextResponse<CheckStatu
       console.log("[API] Order expired, updating status:", orderId);
       await updateOrderStatus(orderId, "expired");
       order.status = "expired";
+    }
+
+    // If order is still pending or scanning, check blockchain for incoming transfers
+    // This detects payments made via WalletConnect QR code
+    if (order.status === "pending" || order.status === "scanning") {
+      console.log("[API] Checking blockchain for incoming transfers...");
+      
+      try {
+        // Check the preferred network first, then all networks
+        const networkId = order.networkId === "auto" ? undefined : order.networkId;
+        
+        const blockchainResult = networkId
+          ? await checkForTransfers(
+              order.merchantWalletAddress,
+              networkId,
+              undefined,
+              order.amount
+            )
+          : await checkAllNetworksForTransfers(
+              order.merchantWalletAddress,
+              order.amount
+            );
+
+        if (blockchainResult.found && blockchainResult.transfer) {
+          console.log("[API] Payment detected on blockchain!");
+          console.log(`[API] TX: ${blockchainResult.transfer.transactionHash}`);
+          console.log(`[API] Amount: ${blockchainResult.transfer.amount} ${blockchainResult.transfer.tokenSymbol}`);
+          
+          // Update order and payment status
+          await Promise.all([
+            updateOrderStatus(orderId, "completed"),
+            updatePaymentStatus(orderId, {
+              status: "completed",
+              transactionHash: blockchainResult.transfer.transactionHash,
+              networkId: blockchainResult.transfer.networkId,
+              stablecoin: blockchainResult.transfer.tokenSymbol,
+              amount: parseFloat(blockchainResult.transfer.amount),
+            }),
+          ]);
+          
+          order.status = "completed";
+          if (paymentDetails) {
+            paymentDetails.status = "completed";
+            paymentDetails.transactionHash = blockchainResult.transfer.transactionHash;
+          }
+        }
+      } catch (blockchainError) {
+        console.warn("[API] Blockchain monitoring error:", blockchainError);
+        // Don't fail - continue with other checks
+      }
     }
 
     // If there's an active Mesh transfer, check its status

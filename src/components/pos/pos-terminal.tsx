@@ -99,6 +99,7 @@ function StatusBadge({ status }: { status: PaymentStatus }) {
 function QRCodeDisplay({
   qrCodeDataUrl,
   paymentUrl,
+  meshLinkUrl,
   expiresAt,
   onCopy,
   isAutoDetect,
@@ -106,6 +107,7 @@ function QRCodeDisplay({
 }: {
   qrCodeDataUrl: string;
   paymentUrl: string;
+  meshLinkUrl?: string | null;
   expiresAt: string;
   onCopy: () => void;
   isAutoDetect?: boolean;
@@ -113,6 +115,7 @@ function QRCodeDisplay({
 }) {
   const [timeLeft, setTimeLeft] = useState("");
   const [showAllOptions, setShowAllOptions] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<"wallet" | "exchange">("wallet");
 
   useEffect(() => {
     const updateTimer = () => {
@@ -145,70 +148,140 @@ function QRCodeDisplay({
 
   return (
     <div className="flex flex-col items-center space-y-4">
-      <div className="qr-container">
-        <img
-          src={qrCodeDataUrl}
-          alt="Payment QR Code"
-          className="w-64 h-64 rounded-lg"
-        />
-      </div>
-
-      <div className="flex items-center gap-2 text-sm text-gray-600">
-        <Clock className="w-4 h-4" />
-        <span>Expires in: {timeLeft}</span>
-      </div>
-
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={onCopy}>
-          <Copy className="w-4 h-4 mr-1" />
-          Copy Link
-        </Button>
-        <Button variant="outline" size="sm" asChild>
-          <a href={paymentUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="w-4 h-4 mr-1" />
-            Open
-          </a>
-        </Button>
-      </div>
-
-      {isAutoDetect && supportedOptions && supportedOptions.length > 0 ? (
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2">
-            <Zap className="w-4 h-4 text-orange-500" />
-            <span className="text-sm font-medium text-gray-700">Auto-Detect Enabled</span>
-          </div>
-          <p className="text-sm text-gray-500 max-w-xs">
-            Accepts <strong>{uniqueStablecoins.length}</strong> stablecoins across <strong>{uniqueNetworks.length}</strong> networks
-          </p>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setShowAllOptions(!showAllOptions)}
-            className="text-xs text-orange-600 hover:text-orange-700"
+      {/* Payment Mode Toggle */}
+      {meshLinkUrl && (
+        <div className="flex rounded-lg bg-gray-100 p-1 mb-2">
+          <button
+            onClick={() => setPaymentMode("wallet")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              paymentMode === "wallet"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
           >
-            {showAllOptions ? "Hide options" : `View all ${supportedOptions.length} options`}
-          </Button>
-          {showAllOptions && (
-            <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-2 text-xs">
-              <div className="grid grid-cols-2 gap-1">
-                {supportedOptions.slice(0, 20).map((opt, i) => (
-                  <div key={i} className="flex items-center gap-1 text-gray-600">
-                    <span className="font-medium">{opt.stablecoin}</span>
-                    <span className="text-gray-400">on</span>
-                    <span>{opt.network}</span>
-                  </div>
-                ))}
+            📱 Wallet
+          </button>
+          <button
+            onClick={() => setPaymentMode("exchange")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              paymentMode === "exchange"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            🏦 Exchange
+          </button>
+        </div>
+      )}
+
+      {paymentMode === "wallet" ? (
+        <>
+          <div className="qr-container">
+            <img
+              src={qrCodeDataUrl}
+              alt="Payment QR Code"
+              className="w-64 h-64 rounded-lg"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Clock className="w-4 h-4" />
+            <span>Expires in: {timeLeft}</span>
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onCopy}>
+              <Copy className="w-4 h-4 mr-1" />
+              Copy Link
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <a href={paymentUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-4 h-4 mr-1" />
+                Open
+              </a>
+            </Button>
+          </div>
+
+          {isAutoDetect && supportedOptions && supportedOptions.length > 0 ? (
+            <div className="text-center space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                <Zap className="w-4 h-4 text-orange-500" />
+                <span className="text-sm font-medium text-gray-700">Auto-Detect Enabled</span>
               </div>
-              {supportedOptions.length > 20 && (
-                <p className="text-gray-400 mt-1">+{supportedOptions.length - 20} more...</p>
+              <p className="text-sm text-gray-500 max-w-xs">
+                Accepts <strong>{uniqueStablecoins.length}</strong> stablecoins across <strong>{uniqueNetworks.length}</strong> networks
+              </p>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowAllOptions(!showAllOptions)}
+                className="text-xs text-orange-600 hover:text-orange-700"
+              >
+                {showAllOptions ? "Hide options" : `View all ${supportedOptions.length} options`}
+              </Button>
+              {showAllOptions && (
+                <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-2 text-xs">
+                  <div className="grid grid-cols-2 gap-1">
+                    {supportedOptions.slice(0, 20).map((opt, i) => (
+                      <div key={i} className="flex items-center gap-1 text-gray-600">
+                        <span className="font-medium">{opt.stablecoin}</span>
+                        <span className="text-gray-400">on</span>
+                        <span>{opt.network}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {supportedOptions.length > 20 && (
+                    <p className="text-gray-400 mt-1">+{supportedOptions.length - 20} more...</p>
+                  )}
+                </div>
               )}
             </div>
+          ) : (
+            <p className="text-sm text-center text-gray-500 max-w-xs">
+              Scan with any WalletConnect-compatible wallet to pay
+            </p>
           )}
-        </div>
+        </>
       ) : (
-        <p className="text-sm text-center text-gray-500 max-w-xs">
-          Scan with any WalletConnect-compatible wallet to pay
-        </p>
+        <>
+          {/* Exchange Payment Mode via Mesh Link */}
+          <div className="text-center space-y-4">
+            <div className="w-20 h-20 mx-auto rounded-full bg-blue-100 flex items-center justify-center">
+              <span className="text-4xl">🏦</span>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold text-gray-900">Pay from Exchange</h3>
+              <p className="text-sm text-gray-500 mt-1 max-w-xs">
+                Transfer directly from Coinbase, Kraken, Binance, or other connected accounts
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Clock className="w-4 h-4" />
+              <span>Expires in: {timeLeft}</span>
+            </div>
+
+            <Button className="w-full" asChild>
+              <a href={meshLinkUrl!} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Connect Exchange & Pay
+              </a>
+            </Button>
+
+            <div className="flex flex-wrap justify-center gap-2 text-xs text-gray-400">
+              <span>Coinbase</span>
+              <span>•</span>
+              <span>Kraken</span>
+              <span>•</span>
+              <span>Binance</span>
+              <span>•</span>
+              <span>Robinhood</span>
+              <span>•</span>
+              <span>+50 more</span>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -379,6 +452,7 @@ export function POSTerminal() {
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [meshLinkUrl, setMeshLinkUrl] = useState<string | null>(null); // Mesh Link URL for exchange transfers
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [status, setStatus] = useState<PaymentStatus>("pending");
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
@@ -476,6 +550,7 @@ export function POSTerminal() {
 
       setQrCode(data.qrCodeDataUrl || null);
       setPaymentUrl(data.paymentUrl || null);
+      setMeshLinkUrl(data.meshLinkUrl || null); // Store Mesh Link URL for exchange transfers
       setExpiresAt(data.expiresAt || null);
       setSupportedOptions(data.supportedOptions || null);
       setIsAutoDetectQR(data.isAutoDetect || false);
@@ -570,6 +645,7 @@ export function POSTerminal() {
     setCurrentOrder(null);
     setQrCode(null);
     setPaymentUrl(null);
+    setMeshLinkUrl(null);
     setExpiresAt(null);
     setStatus("pending");
     setTransactionHash(null);
@@ -597,6 +673,7 @@ export function POSTerminal() {
     setCurrentOrder(null);
     setQrCode(null);
     setPaymentUrl(null);
+    setMeshLinkUrl(null);
     setExpiresAt(null);
     setStatus("pending");
     setTransactionHash(null);
@@ -837,6 +914,7 @@ export function POSTerminal() {
                 <QRCodeDisplay
                   qrCodeDataUrl={qrCode}
                   paymentUrl={paymentUrl || ""}
+                  meshLinkUrl={meshLinkUrl}
                   expiresAt={expiresAt || new Date().toISOString()}
                   onCopy={copyPaymentUrl}
                   isAutoDetect={isAutoDetectQR}
