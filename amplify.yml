@@ -10,8 +10,13 @@ frontend:
     preBuild:
       commands:
         - npm ci --cache .npm --prefer-offline
+        # Log env vars availability (for debugging, without values)
+        - echo "MESH_CLIENT_ID configured = $([ -n \"$MESH_CLIENT_ID\" ] && echo 'yes' || echo 'no')"
+        - echo "WALLETCONNECT_PROJECT_ID configured = $([ -n \"$WALLETCONNECT_PROJECT_ID\" ] && echo 'yes' || echo 'no')"
+        - echo "MERCHANT_WALLET_ADDRESS configured = $([ -n \"$MERCHANT_WALLET_ADDRESS\" ] && echo 'yes' || echo 'no')"
     build:
       commands:
+        # Build with env vars - they get embedded into the Next.js bundle
         - npm run build
   artifacts:
     baseDirectory: .next
@@ -22,11 +27,3 @@ frontend:
       - .next/cache/**/*
       - .npm/**/*
       - node_modules/**/*
-  environmentVariables:
-    # These will be passed to SSR functions
-    MESH_CLIENT_ID: ${MESH_CLIENT_ID}
-    MESH_CLIENT_SECRET: ${MESH_CLIENT_SECRET}
-    WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
-    MERCHANT_WALLET_ADDRESS: ${MERCHANT_WALLET_ADDRESS}
-    MESH_API_URL: ${MESH_API_URL}
-    AWS_REGION: ${AWS_REGION}
