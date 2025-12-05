@@ -1,129 +1,78 @@
 /**
  * ===========================================
- * AWS Secrets Manager Helper
+ * Environment Secrets Helper
  * ===========================================
  * 
- * Provides secure access to API keys and secrets stored
- * in AWS Secrets Manager.
+ * Provides secure access to API keys and secrets from
+ * environment variables. For Amplify Gen 2, secrets are
+ * configured directly in the Amplify Console.
+ * 
+ * In Amplify Console, set these environment variables:
+ * - MESH_CLIENT_ID
+ * - MESH_CLIENT_SECRET
+ * - WALLETCONNECT_PROJECT_ID
+ * - MERCHANT_WALLET_ADDRESS
  */
 
-import {
-  SecretsManagerClient,
-  GetSecretValueCommand,
-} from "@aws-sdk/client-secrets-manager";
 import type { AppSecrets } from "./types";
 
 // ===========================================
-// Configuration
+// Cache for secrets
 // ===========================================
 
-const SECRETS_NAME = process.env.AWS_SECRETS_NAME || "sablepay/api-keys";
-const AWS_REGION = process.env.AWS_REGION || "us-east-1";
-
-// ===========================================
-// Secrets Client
-// ===========================================
-
-/**
- * Secrets Manager client instance
- */
-const secretsClient = new SecretsManagerClient({
-  region: AWS_REGION,
-});
-
-// Cache for secrets to avoid repeated API calls
 let cachedSecrets: AppSecrets | null = null;
-let cacheExpiresAt: number = 0;
-
-// Cache duration: 5 minutes
-const CACHE_DURATION_MS = 5 * 60 * 1000;
 
 // ===========================================
 // Get Secrets
 // ===========================================
 
 /**
- * Retrieve secrets from AWS Secrets Manager
+ * Retrieve secrets from environment variables
  * 
- * Secrets are cached for 5 minutes to reduce API calls.
- * In development, falls back to environment variables.
+ * For Amplify Gen 2, secrets should be configured in:
+ * Amplify Console > App Settings > Environment Variables
  * 
  * @returns AppSecrets object containing all required secrets
- * @throws Error if secrets cannot be retrieved
+ * @throws Error if required secrets are missing
  */
 export async function getSecrets(): Promise<AppSecrets> {
-  // Check if cache is still valid
-  if (cachedSecrets && Date.now() < cacheExpiresAt) {
-    console.log("[Secrets] Using cached secrets");
+  // Return cached secrets if available
+  if (cachedSecrets) {
     return cachedSecrets;
   }
 
-  // In development, use environment variables directly
-  if (process.env.NODE_ENV === "development" || process.env.USE_MOCK_MODE === "true") {
-    console.log("[Secrets] Using environment variables (development mode)");
-    return {
-      MESH_CLIENT_ID: process.env.MESH_CLIENT_ID || "",
-      MESH_CLIENT_SECRET: process.env.MESH_CLIENT_SECRET || "",
-      WALLETCONNECT_PROJECT_ID: process.env.WALLETCONNECT_PROJECT_ID || "",
-      MERCHANT_WALLET_ADDRESS: process.env.MERCHANT_WALLET_ADDRESS || "",
-    };
-  }
+  console.log("[Secrets] Loading secrets from environment variables");
 
-  console.log(`[Secrets] Fetching secrets from AWS Secrets Manager: ${SECRETS_NAME}`);
+  const secrets: AppSecrets = {
+    MESH_CLIENT_ID: process.env.MESH_CLIENT_ID || "",
+    MESH_CLIENT_SECRET: process.env.MESH_CLIENT_SECRET || "",
+    WALLETCONNECT_PROJECT_ID: process.env.WALLETCONNECT_PROJECT_ID || "",
+    MERCHANT_WALLET_ADDRESS: process.env.MERCHANT_WALLET_ADDRESS || "",
+  };
 
-  try {
-    const command = new GetSecretValueCommand({
-      SecretId: SECRETS_NAME,
-    });
-
-    const response = await secretsClient.send(command);
-
-    if (!response.SecretString) {
-      throw new Error("Secret value is empty");
-    }
-
-    // Parse the JSON secret
-    const secrets = JSON.parse(response.SecretString) as AppSecrets;
-
-    // Validate required fields
+  // Validate required fields in production
+  if (process.env.NODE_ENV === "production") {
     const requiredFields: (keyof AppSecrets)[] = [
       "MESH_CLIENT_ID",
-      "MESH_CLIENT_SECRET",
+      "MESH_CLIENT_SECRET", 
       "WALLETCONNECT_PROJECT_ID",
       "MERCHANT_WALLET_ADDRESS",
     ];
 
-    for (const field of requiredFields) {
-      if (!secrets[field]) {
-        throw new Error(`Missing required secret: ${field}`);
-      }
-    }
-
-    // Update cache
-    cachedSecrets = secrets;
-    cacheExpiresAt = Date.now() + CACHE_DURATION_MS;
-
-    console.log("[Secrets] Successfully retrieved secrets");
-    return secrets;
-  } catch (error) {
-    console.error("[Secrets] Failed to retrieve secrets:", error);
+    const missingFields = requiredFields.filter(field => !secrets[field]);
     
-    // In case of error, try to use environment variables as fallback
-    const fallbackSecrets: AppSecrets = {
-      MESH_CLIENT_ID: process.env.MESH_CLIENT_ID || "",
-      MESH_CLIENT_SECRET: process.env.MESH_CLIENT_SECRET || "",
-      WALLETCONNECT_PROJECT_ID: process.env.WALLETCONNECT_PROJECT_ID || "",
-      MERCHANT_WALLET_ADDRESS: process.env.MERCHANT_WALLET_ADDRESS || "",
-    };
-
-    // Check if fallback has valid values
-    if (fallbackSecrets.MESH_CLIENT_ID && fallbackSecrets.WALLETCONNECT_PROJECT_ID) {
-      console.log("[Secrets] Using environment variable fallback");
-      return fallbackSecrets;
+    if (missingFields.length > 0) {
+      console.error("[Secrets] Missing required environment variables:", missingFields);
+      // Don't throw in production - allow app to start but log error
+      console.error("[Secrets] Please configure these in Amplify Console > Environment Variables");
     }
-
-    throw new Error(`Failed to retrieve secrets: ${(error as Error).message}`);
   }
+
+  // Cache the secrets
+  cachedSecrets = secrets;
+
+  console.log("[Secrets] Secrets loaded successfully");
+  return secrets;
 }
 
 // ===========================================
@@ -156,7 +105,7 @@ export async function getWalletConnectProjectId(): Promise<string> {
  * Get Merchant Wallet Address
  */
 export async function getMerchantWalletAddress(): Promise<string> {
-  // First check environment variable
+  // First check environment variable directly
   if (process.env.MERCHANT_WALLET_ADDRESS) {
     return process.env.MERCHANT_WALLET_ADDRESS;
   }
@@ -176,7 +125,6 @@ export async function getMerchantWalletAddress(): Promise<string> {
  */
 export function clearSecretsCache(): void {
   cachedSecrets = null;
-  cacheExpiresAt = 0;
   console.log("[Secrets] Cache cleared");
 }
 
@@ -184,5 +132,5 @@ export function clearSecretsCache(): void {
  * Check if secrets are cached
  */
 export function isSecretsCached(): boolean {
-  return cachedSecrets !== null && Date.now() < cacheExpiresAt;
+  return cachedSecrets !== null;
 }
