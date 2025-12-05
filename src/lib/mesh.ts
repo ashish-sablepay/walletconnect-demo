@@ -194,7 +194,8 @@ export async function generateLinkToken(
       toAddresses: toAddresses,
       amountInFiat: amountInFiat,
       isInclusiveFeeEnabled: false, // Customer pays network fees separately
-      generatePayLink: true, // Generate a shareable payment link
+      // Note: generatePayLink requires special enablement in Mesh dashboard
+      // If you want shareable payment links, enable PayLink in your Mesh settings
     },
     restrictMultipleAccounts: true, // Only allow one account per session
     disableApiKeyGeneration: true, // Don't allow API key generation
