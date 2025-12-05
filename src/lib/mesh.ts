@@ -67,16 +67,17 @@ async function getMeshCredentials(): Promise<{
 
 /**
  * Mesh Network ID mapping for supported chains
- * These are the official Mesh network identifiers
+ * These are the official Mesh network identifiers from GET /api/v1/transfers/managed/networks
+ * 
+ * Only including networks that are verified to work with Mesh API.
+ * Use GET /api/v1/transfers/managed/networks to get the full list.
  */
 export const MESH_NETWORK_IDS: Record<string, string> = {
+  // Verified network IDs from Mesh API
   ethereum: "e3c7fdd8-b1fc-4e51-85ae-bb276e075611",
   polygon: "7436e9d0-ba42-4d2b-b4c0-8e4e606b2c12",
-  arbitrum: "4e6f9078-714d-4497-8a0f-6dc4e1521079",
-  optimism: "1e2e5a8b-71a6-4d5f-8e8c-9e4a9d8c7b6a",
-  base: "8defb598-5249-4c0b-8a7e-6b4c7a9d8e5f",
-  avalanche: "2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
-  bsc: "3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+  // Note: Add more networks after verifying their IDs from Mesh API
+  // Call GET /api/v1/transfers/managed/networks to get current network list
 };
 
 // Legacy mapping for backward compatibility
@@ -103,23 +104,33 @@ export const SUPPORTED_STABLECOINS = [
 ] as const;
 
 /**
+ * Verified networks with confirmed Mesh network IDs
+ * Only include networks that have verified UUIDs in MESH_NETWORK_IDS
+ */
+export const VERIFIED_NETWORKS = ["ethereum", "polygon"];
+
+/**
  * Stablecoin availability per network
- * This helps generate the right transfer addresses
+ * Only including verified networks to avoid "Network not found" errors
+ * 
+ * Note: More networks can be added after verifying their IDs from:
+ * GET /api/v1/transfers/managed/networks
  */
 export const STABLECOIN_NETWORKS: Record<string, string[]> = {
-  USDC: ["ethereum", "polygon", "arbitrum", "optimism", "base", "avalanche"],
-  USDT: ["ethereum", "polygon", "arbitrum", "optimism", "avalanche", "bsc"],
-  DAI: ["ethereum", "polygon", "arbitrum", "optimism", "base"],
-  BUSD: ["ethereum", "bsc"],
-  FRAX: ["ethereum", "polygon", "arbitrum", "optimism"],
-  TUSD: ["ethereum", "polygon", "avalanche", "bsc"],
+  // Only including verified networks: ethereum, polygon
+  USDC: ["ethereum", "polygon"],
+  USDT: ["ethereum", "polygon"],
+  DAI: ["ethereum", "polygon"],
+  BUSD: ["ethereum"],
+  FRAX: ["ethereum", "polygon"],
+  TUSD: ["ethereum", "polygon"],
   USDP: ["ethereum"],
   GUSD: ["ethereum"],
-  LUSD: ["ethereum", "arbitrum", "optimism"],
-  sUSD: ["ethereum", "optimism"],
+  LUSD: ["ethereum"],
+  sUSD: ["ethereum"],
   EURS: ["ethereum", "polygon"],
   EURT: ["ethereum"],
-  USDD: ["ethereum", "bsc"],
+  USDD: ["ethereum"],
   PYUSD: ["ethereum"],
 };
 
@@ -240,8 +251,8 @@ export async function generateLinkToken(
 /**
  * Build transfer addresses based on stablecoin and network preferences
  * 
- * This function creates a comprehensive list of all valid transfer
- * destinations, allowing Mesh to find the best route for the customer.
+ * This function creates a list of transfer destinations using ONLY
+ * verified Mesh network IDs to avoid "Network not found" errors.
  */
 function buildTransferAddresses(
   merchantAddress: string,
@@ -252,7 +263,7 @@ function buildTransferAddresses(
   
   // Determine which stablecoins to include
   const stablecoinsToUse = symbol === "any" || symbol === "auto"
-    ? ["USDC", "USDT", "DAI", "BUSD", "FRAX", "TUSD", "PYUSD"] // Most common
+    ? ["USDC", "USDT", "DAI"] // Most common, available on verified networks
     : [symbol.toUpperCase()];
   
   // Determine which networks to include
@@ -262,10 +273,16 @@ function buildTransferAddresses(
     const availableNetworks = STABLECOIN_NETWORKS[coin] || ["ethereum", "polygon"];
     
     for (const network of availableNetworks) {
+      // Only use networks that have verified Mesh IDs
+      if (!VERIFIED_NETWORKS.includes(network)) {
+        console.log(`[Mesh] Skipping unverified network: ${network}`);
+        continue;
+      }
+      
       // If specific network requested, only use that network
       if (!isAutoNetwork) {
         const requestedNetwork = networkId.toLowerCase();
-        if (network !== requestedNetwork && getMeshNetworkId(requestedNetwork) !== MESH_NETWORK_IDS[network]) {
+        if (network !== requestedNetwork) {
           continue;
         }
       }
@@ -277,12 +294,14 @@ function buildTransferAddresses(
           symbol: coin,
           address: merchantAddress,
         });
+        console.log(`[Mesh] Added: ${coin} on ${network} (${meshNetworkId})`);
       }
     }
   }
   
   // Ensure we have at least one address (fallback to USDC on Ethereum)
   if (addresses.length === 0) {
+    console.log(`[Mesh] No addresses generated, using fallback: USDC on Ethereum`);
     addresses.push({
       networkId: MESH_NETWORK_IDS.ethereum,
       symbol: "USDC",
@@ -290,12 +309,7 @@ function buildTransferAddresses(
     });
   }
   
-  // Log the generated addresses for debugging
-  console.log(`[Mesh] Transfer addresses generated:`);
-  addresses.forEach((addr, i) => {
-    const networkName = getNetworkName(addr.networkId);
-    console.log(`  ${i + 1}. ${addr.symbol} on ${networkName}`);
-  });
+  console.log(`[Mesh] Total transfer addresses: ${addresses.length}`);
   
   return addresses;
 }
