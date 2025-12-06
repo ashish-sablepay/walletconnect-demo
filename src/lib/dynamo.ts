@@ -228,3 +228,34 @@ export function getStoreStats(): { orders: number; paymentStatuses: number } {
     paymentStatuses: paymentStatusStore.size,
   };
 }
+
+/**
+ * Scan orders by merchant address and optional status filter
+ * Used by webhooks to find pending orders for a merchant
+ * 
+ * @param merchantAddress - The merchant wallet address (case-insensitive)
+ * @param statuses - Optional array of statuses to filter by
+ * @returns Array of matching orders
+ */
+export async function scanOrdersByMerchantAddress(
+  merchantAddress: string,
+  statuses?: PaymentStatus[]
+): Promise<Order[]> {
+  const normalizedAddress = merchantAddress.toLowerCase();
+  
+  const allOrders = Array.from(ordersStore.values());
+  
+  return allOrders.filter(order => {
+    // Match merchant address (case-insensitive)
+    if (order.merchantWalletAddress.toLowerCase() !== normalizedAddress) {
+      return false;
+    }
+    
+    // If statuses filter provided, check status
+    if (statuses && statuses.length > 0) {
+      return statuses.includes(order.status);
+    }
+    
+    return true;
+  });
+}

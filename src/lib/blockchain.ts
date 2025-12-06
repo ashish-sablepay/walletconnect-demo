@@ -18,11 +18,11 @@ import { TOKEN_CONTRACTS, SUPPORTED_NETWORKS } from "./walletconnect";
 
 const RPC_ENDPOINTS: Record<string, string> = {
   ethereum: process.env.ETHEREUM_RPC_URL || "https://eth.llamarpc.com",
-  polygon: process.env.POLYGON_RPC_URL || "https://polygon.llamarpc.com",
-  arbitrum: process.env.ARBITRUM_RPC_URL || "https://arbitrum.llamarpc.com",
-  optimism: process.env.OPTIMISM_RPC_URL || "https://optimism.llamarpc.com",
-  base: process.env.BASE_RPC_URL || "https://base.llamarpc.com",
-  avalanche: process.env.AVALANCHE_RPC_URL || "https://avalanche.llamarpc.com",
+  polygon: process.env.POLYGON_RPC_URL || "https://polygon-rpc.com",
+  arbitrum: process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc",
+  optimism: process.env.OPTIMISM_RPC_URL || "https://mainnet.optimism.io",
+  base: process.env.BASE_RPC_URL || "https://mainnet.base.org",
+  avalanche: process.env.AVALANCHE_RPC_URL || "https://api.avax.network/ext/bc/C/rpc",
   bsc: process.env.BSC_RPC_URL || "https://bsc-dataseed.binance.org",
 };
 
@@ -151,16 +151,23 @@ export async function checkForTransfers(
   try {
     const rpcUrl = RPC_ENDPOINTS[networkId];
     if (!rpcUrl) {
+      console.log(`[Blockchain] Unsupported network: ${networkId}`);
       return { found: false, error: `Unsupported network: ${networkId}` };
     }
 
+    console.log(`[Blockchain] Checking ${networkId} for transfers to ${merchantAddress}`);
+
     // Get current block
     const currentBlock = await getBlockNumber(networkId);
-    const startBlock = fromBlock || currentBlock - 100; // Last ~100 blocks
+    // Check last 500 blocks (~10-15 minutes on most chains)
+    const startBlock = fromBlock || currentBlock - 500;
+
+    console.log(`[Blockchain] Scanning blocks ${startBlock} to ${currentBlock} on ${networkId}`);
 
     // Get stablecoin contracts for this network
     const contracts = TOKEN_CONTRACTS[networkId as keyof typeof TOKEN_CONTRACTS];
     if (!contracts) {
+      console.log(`[Blockchain] No token contracts for ${networkId}`);
       return { found: false, error: `No token contracts for ${networkId}` };
     }
 
@@ -169,6 +176,8 @@ export async function checkForTransfers(
       if (!tokenAddress) continue;
 
       try {
+        console.log(`[Blockchain] Checking ${symbol} (${tokenAddress}) on ${networkId}`);
+        
         // Query Transfer events where `to` is the merchant address
         const logs = await rpcCall(rpcUrl, "eth_getLogs", [
           {
@@ -188,6 +197,8 @@ export async function checkForTransfers(
           data: string;
         }>;
 
+        console.log(`[Blockchain] Found ${logs?.length || 0} ${symbol} transfers on ${networkId}`);
+
         if (logs && logs.length > 0) {
           // Get the most recent transfer
           const latestLog = logs[logs.length - 1];
@@ -196,11 +207,14 @@ export async function checkForTransfers(
           const decimals = symbol === "DAI" ? 18 : 6;
           const amount = parseAmount(latestLog.data, decimals);
           
-          // If expected amount specified, check if it matches (with small tolerance)
+          console.log(`[Blockchain] Latest transfer: ${amount} ${symbol}`);
+          
+          // If expected amount specified, check if it matches (with 5% tolerance for fees)
           if (expectedAmount !== undefined) {
             const parsedAmount = parseFloat(amount);
-            const tolerance = expectedAmount * 0.01; // 1% tolerance
+            const tolerance = expectedAmount * 0.05; // 5% tolerance
             if (Math.abs(parsedAmount - expectedAmount) > tolerance) {
+              console.log(`[Blockchain] Amount ${parsedAmount} doesn't match expected ${expectedAmount} (tolerance: ${tolerance})`);
               continue; // Amount doesn't match, check next token
             }
           }
@@ -216,7 +230,7 @@ export async function checkForTransfers(
             networkId,
           };
 
-          console.log(`[Blockchain] Found transfer: ${amount} ${symbol} on ${networkId}`);
+          console.log(`[Blockchain] ✓ Payment detected: ${amount} ${symbol} on ${networkId} (tx: ${transfer.transactionHash})`);
           return { found: true, transfer };
         }
       } catch (tokenError) {
@@ -225,6 +239,7 @@ export async function checkForTransfers(
       }
     }
 
+    console.log(`[Blockchain] No matching transfers found on ${networkId}`);
     return { found: false };
   } catch (error) {
     console.error(`[Blockchain] Error monitoring ${networkId}:`, error);
@@ -233,31 +248,40 @@ export async function checkForTransfers(
 }
 
 /**
- * Check multiple networks for incoming transfers
+ * Check multiple networks for incoming transfers (parallel for speed)
  */
 export async function checkAllNetworksForTransfers(
   merchantAddress: string,
   expectedAmount?: number,
   preferredNetworkId?: string
 ): Promise<MonitoringResult> {
-  // If preferred network specified, check it first
+  console.log(`[Blockchain] Checking all networks for transfers to ${merchantAddress}`);
+  
+  // Priority order: lower fee networks first
+  const networkPriority = ["base", "polygon", "arbitrum", "optimism", "avalanche", "bsc", "ethereum"];
+  
+  // If preferred network specified, put it first
   const networks = preferredNetworkId
-    ? [preferredNetworkId, ...Object.keys(RPC_ENDPOINTS).filter(n => n !== preferredNetworkId)]
-    : Object.keys(RPC_ENDPOINTS);
+    ? [preferredNetworkId, ...networkPriority.filter(n => n !== preferredNetworkId)]
+    : networkPriority;
 
-  for (const networkId of networks) {
-    const result = await checkForTransfers(
-      merchantAddress,
-      networkId,
-      undefined,
-      expectedAmount
-    );
-    
-    if (result.found) {
-      return result;
+  // Check networks in parallel for faster detection
+  const results = await Promise.allSettled(
+    networks.map(networkId =>
+      checkForTransfers(merchantAddress, networkId, undefined, expectedAmount)
+    )
+  );
+
+  // Find the first successful result
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === "fulfilled" && result.value.found) {
+      console.log(`[Blockchain] ✓ Payment found on ${networks[i]}`);
+      return result.value;
     }
   }
 
+  console.log(`[Blockchain] No payments found on any network`);
   return { found: false };
 }
 

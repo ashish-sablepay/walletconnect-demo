@@ -20,6 +20,7 @@ frontend:
         - echo "MERCHANT_WALLET_ADDRESS=$MERCHANT_WALLET_ADDRESS" >> .env.production
         - echo "MESH_API_URL=$MESH_API_URL" >> .env.production
         - echo "AWS_REGION=$AWS_REGION" >> .env.production
+        - echo "ALCHEMY_WEBHOOK_SIGNING_KEY=$ALCHEMY_WEBHOOK_SIGNING_KEY" >> .env.production
         # Log env vars availability (for debugging, without values)
         - echo "Environment variables written to .env.production"
         - cat .env.production | sed 's/=.*/=***/'
