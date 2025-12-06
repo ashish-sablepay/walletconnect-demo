@@ -583,9 +583,17 @@ export function POSTerminal() {
     // Clear any existing interval
     if (pollingInterval) {
       clearInterval(pollingInterval);
+      setPollingInterval(null);
     }
 
+    // Use a ref-like pattern to track the interval inside the closure
+    let intervalId: NodeJS.Timeout | null = null;
+    let shouldStop = false;
+
     const checkStatus = async () => {
+      // Don't make request if we should stop
+      if (shouldStop) return;
+      
       try {
         const response = await fetch(`/api/check-status?orderId=${orderId}`);
         const data: CheckStatusResponse = await response.json();
@@ -600,15 +608,17 @@ export function POSTerminal() {
 
           // Stop polling on terminal states
           if (["completed", "failed", "expired", "cancelled"].includes(data.status)) {
-            if (pollingInterval) {
-              clearInterval(pollingInterval);
-              setPollingInterval(null);
+            shouldStop = true;
+            if (intervalId) {
+              clearInterval(intervalId);
+              intervalId = null;
             }
+            setPollingInterval(null);
 
             if (data.status === "completed") {
               toast({
-                title: "Payment Received!",
-                description: `$${currentOrder?.amount.toFixed(2)} USDC received`,
+                title: "✅ Payment Received!",
+                description: `$${currentOrder?.amount.toFixed(2)} ${data.paymentDetails?.stablecoin || 'USDC'} received`,
                 variant: "default",
               });
             } else if (data.status === "failed") {
@@ -629,8 +639,8 @@ export function POSTerminal() {
     checkStatus();
 
     // Poll every 3 seconds
-    const interval = setInterval(checkStatus, 3000);
-    setPollingInterval(interval);
+    intervalId = setInterval(checkStatus, 3000);
+    setPollingInterval(intervalId);
   }, [pollingInterval, currentOrder, toast]);
 
   /**

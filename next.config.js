@@ -20,10 +20,8 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   
-  // ESLint during builds
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
+  // ESLint config moved to eslint.config.js in Next.js 16
+  // See: https://nextjs.org/docs/app/api-reference/cli/next#next-lint-options
 };
 
 module.exports = nextConfig;
